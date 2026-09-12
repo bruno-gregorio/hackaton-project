@@ -67,32 +67,31 @@ This will start both the UI and agent servers concurrently.
 
 ## Running a Channel
 
-`channel-host.mts` mounts the same agent as an Intelligence Channel
-(Slack, Teams). It requires `CPK_INTELLIGENCE_API_KEY` and a declared Channel in
-`.copilotkit/channels.json` — set both up with `copilotkit init` or
-`copilotkit channels add`, which write that file and the credentials your
-`.env` needs, then:
+`channel-host.mts` mounts the same agent as a Telegram Channel. It requires
+`CPK_INTELLIGENCE_API_KEY` plus `TELEGRAM_BOT_TOKEN` in `.env` (see
+`.env.example`), then:
 
 ```bash
 npm run channel
 ```
 
-The host reads which Channel to hold from `.copilotkit/channels.json`. If a
-project declares more than one, set `INTELLIGENCE_CHANNEL_NAME` to pick one.
+The host reads which Channel name to hold from `TELEGRAM_CHANNEL_NAME`, then
+`INTELLIGENCE_CHANNEL_NAME`, then `.copilotkit/channels.json`. If none are set,
+it defaults to `telegram`.
 
-The host holds no provider credentials and exposes no provider endpoint —
-Intelligence owns the provider edge — so the same file works for every provider.
+Telegram uses long-polling by default, so local development does not require a
+public URL. For deployed webhook mode, set `TELEGRAM_MODE=webhook` or `auto`
+plus the `TELEGRAM_WEBHOOK_*` values documented in `.env.example`.
 
 The Channel itself is declared in `channels.mts` — that is where to add commands,
 reactions, or an `onMention` handler. `channel-host.mts` only owns the process
-lifetime, and is byte-identical in every starter.
+lifetime.
 
 Once startup finishes, the log reports the truth per Channel:
 
 - `Channel "<name>" is online.` — the session is up and can send.
 - `Channel "<name>" is declared but no provider is attached yet.` —
-  a normal waiting state, not a failure. Run `copilotkit channels status` to
-  see what setup remains.
+  the Telegram token or provider setup is not active yet.
 
 Neither message proves the provider app is installed, reachable, or that
 anyone can message it — verify that separately (invite the bot, then message

@@ -2,14 +2,12 @@
  * Channel host — a second mount over the SAME agent the web route serves.
  *
  * The runtime route answers HTTP for the web app. This process holds an
- * Intelligence Channel open (Slack, Teams, ...) and delivers its turns to that
- * same agent.
+ * Telegram Channel open and delivers its turns to that same agent.
  *
- * It holds NO provider credentials and exposes NO provider endpoint:
- * Intelligence owns the provider edge and delivers turns over its realtime
- * transport. The Channel itself lives in `channels.mts` — this file is only the
- * process that owns its lifetime, and is identical in every starter and for
- * every provider.
+ * Telegram runs as a direct adapter configured in `channels.mts`. By default it
+ * uses long-polling, so this process does not expose a provider endpoint.
+ * Webhook mode can be enabled with the Telegram webhook env vars documented in
+ * `.env.example`.
  *
  * There is no HTTP server here. Nothing calls this process: the gateway
  * connection is outbound, and holding it open is what keeps the process alive.
@@ -38,11 +36,12 @@ function required(name: string): string {
 
 async function main(): Promise<void> {
   const channelName = resolveChannelName();
+  const channel = createDefaultChannel(channelName);
 
   const runtime = new CopilotRuntime({
     // The Channel supplies its own agent, so no runtime-hosted agents are needed.
     agents: {},
-    channels: [createDefaultChannel(channelName)],
+    channels: [channel],
     intelligence: new CopilotKitIntelligence({
       apiKey: required("CPK_INTELLIGENCE_API_KEY"),
       ...(process.env.INTELLIGENCE_API_URL
@@ -94,7 +93,12 @@ async function main(): Promise<void> {
   // of as success.
   const { channels: channelStatuses } = handler.channels.status();
   const thisStatus = channelStatuses[channelName];
-  if (thisStatus === "online") {
+  if (channel.adapters.length > 0 && thisStatus === "setup_required") {
+    console.log(
+      `[channel] Channel "${channelName}" is running with a direct Telegram adapter.\n` +
+        "  Managed provider attachment status is not used for this polling setup.",
+    );
+  } else if (thisStatus === "online") {
     console.log(`[channel] Channel "${channelName}" is online.`);
   } else if (thisStatus === "setup_required") {
     console.log(

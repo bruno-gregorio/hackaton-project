@@ -7,8 +7,110 @@
  * handler here rather than in the host.
  */
 import { readFileSync } from "node:fs";
-import { createChannel } from "@copilotkit/channels";
+import { createHash } from "node:crypto";
+import {
+  createChannel,
+  type PlatformAdapter,
+  type ReplyTarget,
+} from "@copilotkit/channels";
+import {
+  defaultTelegramContext,
+  defaultTelegramTools,
+  telegram,
+} from "@copilotkit/channels/telegram";
 import { createDefaultAgent } from "./src/agent";
+
+/** Reads a required env var, or exits naming the one that is missing. */
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    console.error(`[channel] missing required env var: ${name}`);
+    process.exit(1);
+  }
+  return value;
+}
+
+function resolveTelegramMode(): "polling" | "webhook" | "auto" {
+  const mode = process.env.TELEGRAM_MODE;
+  if (!mode) return process.env.TELEGRAM_WEBHOOK_DOMAIN ? "auto" : "polling";
+  if (mode === "polling" || mode === "webhook" || mode === "auto") {
+    return mode;
+  }
+  console.error(
+    `[channel] TELEGRAM_MODE must be "polling", "webhook", or "auto"; received "${mode}".`,
+  );
+  process.exit(1);
+}
+
+function toLangGraphThreadId(channelName: string, threadId: string): string {
+  const hash = createHash("sha256")
+    .update(`copilotkit-channel:${channelName}:${threadId}`)
+    .digest();
+
+  // LangGraph validates thread_id as a UUID. Channel thread ids are stable, but
+  // provider-shaped, so derive a stable UUIDv5-looking value from them.
+  hash[6] = (hash[6] & 0x0f) | 0x50;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+
+  const hex = hash.toString("hex").slice(0, 32);
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20),
+  ].join("-");
+}
+
+function replyTargetKey(target: ReplyTarget): string {
+  const telegramTarget = target as {
+    conversationKey?: string;
+    chatId?: string | number;
+    messageThreadId?: string | number;
+  };
+  if (telegramTarget.conversationKey) return telegramTarget.conversationKey;
+  if (telegramTarget.chatId !== undefined) {
+    return [
+      telegramTarget.chatId,
+      telegramTarget.messageThreadId ?? "dm",
+    ].join(":");
+  }
+  return JSON.stringify(target);
+}
+
+function createTelegramAdapter(channelName: string): PlatformAdapter {
+  const adapter = telegram({
+    token: required("TELEGRAM_BOT_TOKEN"),
+    mode: resolveTelegramMode(),
+    ...(process.env.TELEGRAM_WEBHOOK_DOMAIN
+      ? {
+          webhook: {
+            domain: process.env.TELEGRAM_WEBHOOK_DOMAIN,
+            ...(process.env.TELEGRAM_WEBHOOK_PATH
+              ? { path: process.env.TELEGRAM_WEBHOOK_PATH }
+              : {}),
+            ...(process.env.TELEGRAM_WEBHOOK_PORT
+              ? { port: Number(process.env.TELEGRAM_WEBHOOK_PORT) }
+              : {}),
+            ...(process.env.TELEGRAM_WEBHOOK_SECRET
+              ? { secretToken: process.env.TELEGRAM_WEBHOOK_SECRET }
+              : {}),
+          },
+        }
+      : {}),
+  }) as ReturnType<typeof telegram> & PlatformAdapter;
+
+  adapter.getCanonicalThreadId = (target: ReplyTarget) =>
+    toLangGraphThreadId(channelName, replyTargetKey(target));
+
+  const store = adapter.conversationStore as {
+    threadIdFor?: (conversationKey: string) => string;
+  };
+  store.threadIdFor = (conversationKey) =>
+    toLangGraphThreadId(channelName, conversationKey);
+
+  return adapter;
+}
 
 /**
  * Resolves which declared Channel this process should host.
@@ -19,7 +121,8 @@ import { createDefaultAgent } from "./src/agent";
  * rather than a guess — hosting the wrong Channel would look like it worked.
  */
 export function resolveChannelName(): string {
-  const fromEnv = process.env.INTELLIGENCE_CHANNEL_NAME;
+  const fromEnv =
+    process.env.TELEGRAM_CHANNEL_NAME || process.env.INTELLIGENCE_CHANNEL_NAME;
   if (fromEnv) return fromEnv;
 
   const configPath = ".copilotkit/channels.json";
@@ -32,11 +135,11 @@ export function resolveChannelName(): string {
   try {
     raw = readFileSync(configPath, "utf8");
   } catch {
-    console.error(
-      `[channel] no ${configPath} found.\n` +
-        "  Run `copilotkit channels add <name>` first, or set INTELLIGENCE_CHANNEL_NAME.",
+    console.warn(
+      `[channel] no ${configPath} found; using the default Telegram Channel name "telegram".\n` +
+        "  Set TELEGRAM_CHANNEL_NAME to use a different name.",
     );
-    process.exit(1);
+    return "telegram";
   }
 
   let names: string[];
@@ -70,21 +173,23 @@ export function resolveChannelName(): string {
 /**
  * Builds the Channel the host holds open.
  *
- * No adapters and no provider tools: the transport is attached by the runtime
- * when the handler activates the Channel, and per-provider tools would make
- * this file provider-specific. `onMessage` (not `onMention`) is what makes the
- * Channel work on 1:1 platforms as well as multi-party ones — a non-mention
- * turn is only ever dispatched to message handlers.
+ * The Telegram adapter runs in long-polling mode by default, so local
+ * development does not need a public webhook URL. `onMessage` (not `onMention`)
+ * is what makes the Channel work in DMs as well as groups - a non-mention turn
+ * is only ever dispatched to message handlers.
  */
 export function createDefaultChannel(channelName: string) {
   const channel = createChannel({
     identifyUser: "platform",
     name: channelName,
+    adapters: [createTelegramAdapter(channelName)],
     agent: (threadId) => {
       const agent = createDefaultAgent();
       agent.threadId = threadId;
       return agent;
     },
+    tools: [...defaultTelegramTools],
+    context: [...defaultTelegramContext],
   });
 
   channel.onMessage(async ({ thread, message }) => {

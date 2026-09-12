@@ -13,3 +13,9 @@ approval_mode = "approve"
 
 [mcp_servers.chrome-devtools.tools.click]
 approval_mode = "approve"
+
+[mcp_servers.chrome-devtools.tools.evaluate_script]
+approval_mode = "approve"
+
+[mcp_servers.chrome-devtools.tools.fill]
+approval_mode = "approve"
