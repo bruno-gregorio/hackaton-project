@@ -1,0 +1,40 @@
+.page {
+  background: var(--background);
+  display: flex;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px;
+}
+
+.chatShell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(100%, 860px);
+}
+
+.chat {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex: 1;
+  min-height: 100vh;
+  min-height: calc(100dvh - 78px);
+  overflow: hidden;
+}
+
+.poweredBy {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 12px;
+  }
+
+  .chat {
+    min-height: calc(100dvh - 54px);
+  }
+}
