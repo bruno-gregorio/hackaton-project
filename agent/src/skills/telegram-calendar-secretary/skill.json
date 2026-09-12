@@ -1,0 +1,22 @@
+{
+  "$schema": "https://hasna.dev/schemas/skill.v1.json",
+  "standard": "hasna.skill.v1",
+  "name": "telegram-calendar-secretary",
+  "description": "Build a Telegram secretary that extracts confirmed events from new messages and exports them as a portable iCalendar (.ics) file.",
+  "version": "0.1.0",
+  "kind": "instruction",
+  "category": "Development Tools",
+  "tags": ["telegram", "calendar", "icalendar", "hackathon"],
+  "pricing": { "type": "free" },
+  "approval": {
+    "required": true,
+    "reason": "A user must confirm the event list before the skill generates and sends a calendar file."
+  },
+  "artifacts": [
+    {
+      "name": "calendar-file",
+      "type": "text/calendar",
+      "description": "An RFC 5545 .ics file containing only confirmed events."
+    }
+  ]
+}
