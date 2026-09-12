@@ -17,6 +17,10 @@ import { todo_tools, TodoSchema } from "./todos.js";
 import { query_data } from "./query.js";
 import { search_flights } from "./a2ui_fixed_schema.js";
 import { generate_a2ui } from "./a2ui_dynamic_schema.js";
+import {
+  answer_skill_tools,
+  formatAnswerSkillsForPrompt,
+} from "./answer_skills.js";
 
 const AgentStateSchema = new StateSchema({
   todos: zodState(z.array(TodoSchema).default(() => [])),
@@ -30,7 +34,13 @@ const model = new ChatOpenAI({
 
 export const graph = createAgent({
   model,
-  tools: [query_data, ...todo_tools, generate_a2ui, search_flights],
+  tools: [
+    query_data,
+    ...todo_tools,
+    generate_a2ui,
+    search_flights,
+    ...answer_skill_tools,
+  ],
   middleware: [
     copilotkitMiddleware,
     stateStreamingMiddleware(
@@ -43,7 +53,19 @@ export const graph = createAgent({
   ],
   stateSchema: AgentStateSchema,
   systemPrompt: `
-    You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
+    You are a polished, professional assistant for a quick CopilotKit project.
+    Keep answers concise by default, but expand when the user asks for depth or
+    when a useful answer needs code, steps, or visual analysis.
+
+    Local chatbot skills:
+${formatAnswerSkillsForPrompt()}
+
+    Skill guidance:
+    - These are SKILL.md-standard chatbot skills stored under agent/src/skills/<skill-name>/SKILL.md.
+    - Apply these local skills silently when they fit the user's request.
+    - When a local skill looks relevant, call get_answer_skill and follow its instructions.
+    - If the user asks what skills are available, call list_answer_skills.
+    - New answer skills can be added in agent/src/skills/<skill-name>/SKILL.md.
 
     Tool guidance:
     - Flights: call search_flights to show flight cards with a pre-built schema.

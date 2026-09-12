@@ -111,6 +111,43 @@ The following scripts can also be run using your preferred package manager:
 - `channel` - Holds an Intelligence Channel open (see "Running a Channel" above)
 - `typecheck:channel` - Type-checks the channel host on its own `tsconfig.channel.json`
 
+## Chat, Images, and Chatbot Skills
+
+The main page renders CopilotKit's embedded `<CopilotChat>` with attachments
+enabled, so users can send text plus image/file attachments from the chat input.
+Assistant messages use CopilotKit's built-in Markdown/text renderer.
+
+This project also has a lightweight `SKILL.md` loader for the LangGraph chatbot:
+
+- Add or edit skills in `agent/src/skills/<skill-name>/SKILL.md`.
+- Restart `npm run dev` after changing the file.
+- Ask the chat "what skills are available?" to have the agent list them.
+
+Starter skills included:
+
+- `visual-analysis`
+- `concise-builder`
+
+Each skill folder must include a `SKILL.md` with frontmatter:
+
+```md
+---
+name: skill-name
+description: Use when the user asks for a specific kind of help.
+---
+
+Skill instructions for the chatbot to follow.
+```
+
+The `name` must match the parent folder. The agent lists each skill in its
+system prompt and exposes `list_answer_skills` / `get_answer_skill` tools so it
+can load the full instructions on demand.
+
+If you connect CopilotKit Intelligence and create a Learning container, set
+`CPK_LEARNING_CONTAINER_ID=<container-id>` in `.env`. The runtime will assign
+agent runs to that container so CopilotKit Learning can propose reviewed Skills
+from real usage.
+
 ## Project Structure
 
 ```

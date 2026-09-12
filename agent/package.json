@@ -8,7 +8,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "langgraphjs dev --port 8123 --no-browser"
+    "dev": "node node_modules/@langchain/langgraph-cli/dist/cli/cli.mjs dev --port 8123 --no-browser"
   },
   "dependencies": {
     "@copilotkit/sdk-js": "1.70.2",

@@ -16,6 +16,12 @@ const runtime = new CopilotRuntime({
     ? {
         intelligence: new CopilotKitIntelligence({
           apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+          ...(process.env.CPK_LEARNING_CONTAINER_ID
+            ? {
+                getLearningContainerId: () =>
+                  process.env.CPK_LEARNING_CONTAINER_ID,
+              }
+            : {}),
           ...(process.env.INTELLIGENCE_API_URL
             ? { apiUrl: process.env.INTELLIGENCE_API_URL }
             : {}),

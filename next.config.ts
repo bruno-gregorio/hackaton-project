@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  turbopack: {
+    root: process.cwd(),
+  },
   serverExternalPackages: ["@copilotkit/runtime"],
   env: {
     // NEXT_PUBLIC_* resolves at build time while the Runtime reads the project key
