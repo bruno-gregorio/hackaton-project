@@ -27,8 +27,24 @@ const AgentStateSchema = new StateSchema({
   ...(CopilotKitStateSchema.fields as Record<string, any>),
 });
 
+const openRouterHeaders = {
+  ...(process.env.OPENROUTER_HTTP_REFERER
+    ? { "HTTP-Referer": process.env.OPENROUTER_HTTP_REFERER }
+    : {}),
+  ...(process.env.OPENROUTER_APP_TITLE
+    ? { "X-OpenRouter-Title": process.env.OPENROUTER_APP_TITLE }
+    : {}),
+};
+
 const model = new ChatOpenAI({
-  model: "gpt-5.4",
+  apiKey: process.env.OPENROUTER_API_KEY,
+  model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+  configuration: {
+    baseURL: "https://openrouter.ai/api/v1",
+    ...(Object.keys(openRouterHeaders).length
+      ? { defaultHeaders: openRouterHeaders }
+      : {}),
+  },
   modelKwargs: { parallel_tool_calls: false },
 });
 

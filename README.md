@@ -12,7 +12,7 @@ https://github.com/user-attachments/assets/47761912-d46a-4fb3-b9bd-cb41ddd02e34
   - [pnpm](https://pnpm.io/installation)
   - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
   - [bun](https://bun.sh/)
-- OpenAI API Key (for the LangGraph agent)
+- OpenRouter API Key (for the LangGraph agent)
 
 ## Getting Started
 
@@ -40,10 +40,11 @@ This also installs the agent dependencies via `npm install` inside `agent/`.
 cp .env.example .env
 ```
 
-Then edit the `.env` file and add your OpenAI API key:
+Then edit the `.env` file and add your OpenRouter API key:
 
 ```bash
-OPENAI_API_KEY=your-openai-api-key-here
+OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key-here
+OPENROUTER_MODEL=openai/gpt-4o-mini
 ```
 
 3. Start the development server:

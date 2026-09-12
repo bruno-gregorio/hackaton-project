@@ -9,10 +9,10 @@ import { existsSync, readFileSync } from 'node:fs';
 /** Vendor API keys this scaffold needs before chat and generations will work. */
 const REQUIRED_ENV_KEYS = [
   {
-    "key": "OPENAI_API_KEY",
+    "key": "OPENROUTER_API_KEY",
     "note": "Required by the agent runtime.",
-    "url": "https://platform.openai.com/api-keys",
-    "example": "sk-..."
+    "url": "https://openrouter.ai/keys",
+    "example": "sk-or-v1-..."
   }
 ];
 
@@ -23,8 +23,8 @@ const REQUIRED_ENV_KEYS = [
  * Shape: { [keyVar]: { baseUrlVar: string, baseUrl: string } }
  */
 const MOCK_PROVIDER_BASE_URLS = {
-  "OPENAI_API_KEY": {
-    "baseUrlVar": "OPENAI_BASE_URL",
+  "OPENROUTER_API_KEY": {
+    "baseUrlVar": "OPENROUTER_BASE_URL",
     "baseUrl": "http://127.0.0.1:4010/v1"
   }
 };
