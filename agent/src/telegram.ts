@@ -25,20 +25,33 @@ if (!token) {
 const bot = new Bot(token);
 
 const candidatesByChat = new Map<number, CalendarCandidate[]>();
+const eventKeyword = /(?<![\p{L}\p{N}_])(reunión|reunion|llamada|cita|evento|taller|clase|entrevista|presentación|presentacion)(?![\p{L}\p{N}_])/iu;
 
 function extractCandidates(text: string, sourceMessageId: number) {
-  const dateMatch = /(?<![\p{L}\p{N}_])(hoy|mañana|manana)(?![\p{L}\p{N}_])/iu.exec(text);
+  if (!eventKeyword.test(text)) return [];
+
+  const relativeDateMatch = /(?<![\p{L}\p{N}_])(hoy|mañana|manana)(?![\p{L}\p{N}_])/iu.exec(text);
+  const numericDateMatch = /(?<!\d)(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?(?!\d)/u.exec(text);
   const timeMatch = /(?<!\d)(?:a\s+las)?\s*(\d{1,2})(?:\s*(h|:)(\d{2})?)(?!\d)/iu.exec(text);
-  if (!dateMatch || !timeMatch) return [];
+  if ((!relativeDateMatch && !numericDateMatch) || !timeMatch) return [];
 
   const hour = Number(timeMatch[1]);
   const minute = Number(timeMatch[3] ?? 0);
   if (hour > 23 || minute > 59) return [];
 
   const start = new Date();
-  const relativeDay = dateMatch[1].toLowerCase().normalize("NFD").replace(/[^a-z]/g, "");
-  if (relativeDay === "manana") {
-    start.setDate(start.getDate() + 1);
+  if (relativeDateMatch) {
+    const relativeDay = relativeDateMatch[1].toLowerCase().normalize("NFD").replace(/[^a-z]/g, "");
+    if (relativeDay === "manana") start.setDate(start.getDate() + 1);
+  } else if (numericDateMatch) {
+    const day = Number(numericDateMatch[1]);
+    const month = Number(numericDateMatch[2]);
+    const rawYear = numericDateMatch[3];
+    const year = rawYear ? (rawYear.length === 2 ? 2000 + Number(rawYear) : Number(rawYear)) : start.getFullYear();
+    start.setFullYear(year, month - 1, day);
+    if (start.getFullYear() !== year || start.getMonth() !== month - 1 || start.getDate() !== day) {
+      return [];
+    }
   }
   start.setHours(hour, minute, 0, 0);
 
@@ -48,7 +61,7 @@ function extractCandidates(text: string, sourceMessageId: number) {
     return [];
   }
 
-  const dateStart = dateMatch.index ?? 0;
+  const dateStart = relativeDateMatch?.index ?? numericDateMatch?.index ?? 0;
   const title = text.slice(0, dateStart).replace(/[,:;\-–]+\s*$/, "").trim();
   if (!title) return [];
 
