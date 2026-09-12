@@ -19,6 +19,7 @@ import {
   telegram,
 } from "@copilotkit/channels/telegram";
 import { createDefaultAgent } from "./src/agent";
+import { stopAfterRunError } from "./src/stop-after-run-error";
 
 /** Reads a required env var, or exits naming the one that is missing. */
 function required(name: string): string {
@@ -186,6 +187,7 @@ export function createDefaultChannel(channelName: string) {
     agent: (threadId) => {
       const agent = createDefaultAgent();
       agent.threadId = threadId;
+      agent.use(stopAfterRunError);
       return agent;
     },
     tools: [...defaultTelegramTools],

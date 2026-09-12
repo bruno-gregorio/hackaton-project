@@ -44,7 +44,7 @@ Then edit the `.env` file and add your OpenRouter API key:
 
 ```bash
 OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key-here
-OPENROUTER_MODEL=openai/gpt-4o-mini
+OPENROUTER_MODEL=google/gemma-4-26b-a4b-it
 ```
 
 3. Start the development server:

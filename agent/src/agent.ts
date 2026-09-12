@@ -38,7 +38,7 @@ const openRouterHeaders = {
 
 const model = new ChatOpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
-  model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+  model: process.env.OPENROUTER_MODEL || "google/gemma-4-26b-a4b-it",
   configuration: {
     baseURL: "https://openrouter.ai/api/v1",
     ...(Object.keys(openRouterHeaders).length
