@@ -3,7 +3,6 @@ import { Buffer } from "node:buffer";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { Bot, InputFile, type Context } from "grammy";
-import { ChatOpenAI } from "@langchain/openai";
 
 dotenv.config({ path: fileURLToPath(new URL("../../.env", import.meta.url)) });
 
@@ -24,80 +23,44 @@ if (!token) {
 }
 
 const bot = new Bot(token);
-const model = new ChatOpenAI({
-  model: process.env.OPENAI_MODEL ?? "gpt-5.4",
-  temperature: 0,
-});
 
 const candidatesByChat = new Map<number, CalendarCandidate[]>();
 
-function messageText(content: unknown) {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((item) =>
-        typeof item === "object" && item && "text" in item
-          ? String(item.text)
-          : "",
-      )
-      .join("");
-  }
-  return String(content ?? "");
-}
+function extractCandidates(text: string, sourceMessageId: number) {
+  const dateMatch = /\b(hoje|amanhã|amanha)\b/i.exec(text);
+  const timeMatch = /\b(?:às|as)?\s*(\d{1,2})(?:h|:)(\d{2})?\b/i.exec(text);
+  if (!dateMatch || !timeMatch) return [];
 
-function parseCandidates(raw: string, sourceMessageId: number) {
-  try {
-    const parsed = JSON.parse(raw) as { events?: unknown[] };
-    if (!Array.isArray(parsed.events)) return [];
+  const hour = Number(timeMatch[1]);
+  const minute = Number(timeMatch[2] ?? 0);
+  if (hour > 23 || minute > 59) return [];
 
-    return parsed.events.flatMap((event) => {
-      if (!event || typeof event !== "object") return [];
-      const value = event as Record<string, unknown>;
-      const title = String(value.title ?? "").trim();
-      const start = String(value.start ?? "");
-      const end = String(value.end ?? "");
-      const startMs = Date.parse(start);
-      const endMs = Date.parse(end);
+  const start = new Date();
+  const relativeDay = dateMatch[1].toLowerCase().normalize("NFD").replace(/[^a-z]/g, "");
+  if (relativeDay === "amanha") start.setDate(start.getDate() + 1);
+  start.setHours(hour, minute, 0, 0);
 
-      if (!title || Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
-        return [];
-      }
-
-      return [
-        {
-          title,
-          start: new Date(startMs).toISOString(),
-          end: new Date(endMs).toISOString(),
-          timezone: String(value.timezone ?? timezone),
-          description: String(value.description ?? "").trim(),
-          sourceMessageId,
-        },
-      ];
-    });
-  } catch {
+  const durationMatch = /\bpor\s+(\d+)\s*(?:minutos?|mins?|min)\b/i.exec(text);
+  const durationMinutes = durationMatch ? Number(durationMatch[1]) : 60;
+  if (!Number.isFinite(durationMinutes) || durationMinutes < 1 || durationMinutes > 720) {
     return [];
   }
-}
 
-async function extractCandidates(text: string, sourceMessageId: number) {
-  const now = new Date().toISOString();
-  const response = await model.invoke(`You extract only explicit calendar events from Telegram messages.
+  const dateStart = dateMatch.index ?? 0;
+  const title = text.slice(0, dateStart).replace(/[,:;\-–]+\s*$/, "").trim();
+  if (!title) return [];
 
-Current instant: ${now}
-Default timezone: ${timezone}
-Message: ${JSON.stringify(text)}
-
-Return JSON only, with this exact shape:
-{"events":[{"title":"string","start":"ISO-8601 with UTC offset","end":"ISO-8601 with UTC offset","timezone":"IANA timezone","description":"short source context"}]}
-
-Rules:
-- Return an empty events array for casual conversation, tasks without a date/time, or ambiguous times.
-- Resolve relative dates using the current instant and default timezone.
-- An event needs a concrete start date and time. If a duration is omitted, use one hour for end.
-- Do not invent attendees, locations, or dates.
-- Include no Markdown and no explanation.`);
-
-  return parseCandidates(messageText(response.content), sourceMessageId);
+  const end = new Date(start.getTime() + durationMinutes * 60_000);
+  return [
+    {
+      title,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      timezone,
+      description: text.trim(),
+      sourceMessageId,
+    },
+  ];
 }
 
 function escapeIcs(value: string) {
@@ -153,7 +116,7 @@ async function processText(ctx: Context, text: string, sourceMessageId: number) 
   const chatId = ctx.chat?.id;
   if (!chatId || text.startsWith("/")) return;
 
-  const extracted = await extractCandidates(text, sourceMessageId);
+  const extracted = extractCandidates(text, sourceMessageId);
   if (extracted.length === 0) return;
 
   const saved = candidatesByChat.get(chatId) ?? [];
