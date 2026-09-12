@@ -32,11 +32,11 @@ function extractCandidates(text: string, sourceMessageId: number) {
 
   const relativeDateMatch = /(?<![\p{L}\p{N}_])(hoy|mañana|manana)(?![\p{L}\p{N}_])/iu.exec(text);
   const numericDateMatch = /(?<!\d)(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?(?!\d)/u.exec(text);
-  const timeMatch = /(?<!\d)(?:a\s+las)?\s*(\d{1,2})(?:\s*(h|:)(\d{2})?)(?!\d)/iu.exec(text);
+  const timeMatch = /(?<!\d)(?:a\s+las)?\s*(\d{1,2})(?:\s*(?:h|horas?|:)(\d{2})?)(?![\p{L}\p{N}_])/iu.exec(text);
   if ((!relativeDateMatch && !numericDateMatch) || !timeMatch) return [];
 
   const hour = Number(timeMatch[1]);
-  const minute = Number(timeMatch[3] ?? 0);
+  const minute = Number(timeMatch[2] ?? 0);
   if (hour > 23 || minute > 59) return [];
 
   const start = new Date();
