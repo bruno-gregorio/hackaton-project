@@ -27,7 +27,7 @@ const bot = new Bot(token);
 const candidatesByChat = new Map<number, CalendarCandidate[]>();
 
 function extractCandidates(text: string, sourceMessageId: number) {
-  const dateMatch = /\b(hoje|amanhã|amanha)\b/i.exec(text);
+  const dateMatch = /(?<![\p{L}\p{N}_])(hoje|amanhã|amanha)(?![\p{L}\p{N}_])/iu.exec(text);
   const timeMatch = /\b(?:às|as)?\s*(\d{1,2})(?:h|:)(\d{2})?\b/i.exec(text);
   if (!dateMatch || !timeMatch) return [];
 
