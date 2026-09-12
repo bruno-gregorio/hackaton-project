@@ -27,20 +27,22 @@ const bot = new Bot(token);
 const candidatesByChat = new Map<number, CalendarCandidate[]>();
 
 function extractCandidates(text: string, sourceMessageId: number) {
-  const dateMatch = /(?<![\p{L}\p{N}_])(hoje|amanhã|amanha)(?![\p{L}\p{N}_])/iu.exec(text);
-  const timeMatch = /\b(?:às|as)?\s*(\d{1,2})(?:h|:)(\d{2})?\b/i.exec(text);
+  const dateMatch = /(?<![\p{L}\p{N}_])(hoy|mañana|manana)(?![\p{L}\p{N}_])/iu.exec(text);
+  const timeMatch = /(?<!\d)(?:a\s+las)?\s*(\d{1,2})(?:\s*(h|:)(\d{2})?)(?!\d)/iu.exec(text);
   if (!dateMatch || !timeMatch) return [];
 
   const hour = Number(timeMatch[1]);
-  const minute = Number(timeMatch[2] ?? 0);
+  const minute = Number(timeMatch[3] ?? 0);
   if (hour > 23 || minute > 59) return [];
 
   const start = new Date();
   const relativeDay = dateMatch[1].toLowerCase().normalize("NFD").replace(/[^a-z]/g, "");
-  if (relativeDay === "amanha") start.setDate(start.getDate() + 1);
+  if (relativeDay === "manana") {
+    start.setDate(start.getDate() + 1);
+  }
   start.setHours(hour, minute, 0, 0);
 
-  const durationMatch = /\bpor\s+(\d+)\s*(?:minutos?|mins?|min)\b/i.exec(text);
+  const durationMatch = /\bpor\s+(\d+)\s*(?:minutos?|mins?|min)\b/iu.exec(text);
   const durationMinutes = durationMatch ? Number(durationMatch[1]) : 60;
   if (!Number.isFinite(durationMinutes) || durationMinutes < 1 || durationMinutes > 720) {
     return [];
@@ -80,7 +82,7 @@ function makeCalendar(events: CalendarCandidate[]) {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Secretaria Hackaton//Telegram Calendar Secretary//PT-BR",
+    "PRODID:-//Secretaria Hackaton//Agenda de Telegram//ES",
     "CALSCALE:GREGORIAN",
     ...events.flatMap((event) => [
       "BEGIN:VEVENT",
@@ -102,7 +104,7 @@ function makeCalendar(events: CalendarCandidate[]) {
 function preview(events: CalendarCandidate[]) {
   return events
     .map((event) => {
-      const startsAt = new Intl.DateTimeFormat("pt-BR", {
+      const startsAt = new Intl.DateTimeFormat("es-ES", {
         dateStyle: "short",
         timeStyle: "short",
         timeZone: event.timezone,
@@ -132,32 +134,32 @@ async function processText(ctx: Context, text: string, sourceMessageId: number) 
 
   candidatesByChat.set(chatId, [...saved, ...unique]);
   await ctx.reply(
-    `Anotei ${unique.length === 1 ? "um possível evento" : `${unique.length} possíveis eventos`}:\n${preview(unique)}\n\nEnvie /agenda neste chat para confirmar e receber o arquivo .ics.`,
+    `He anotado ${unique.length === 1 ? "un posible evento" : `${unique.length} posibles eventos`}:\n${preview(unique)}\n\nEnvía /agenda en este chat para confirmar y recibir el archivo .ics.`,
   );
 }
 
 bot.command("start", (ctx) =>
-  ctx.reply("Sou sua secretária de agenda. Envie mensagens com data e horário; quando quiser exportar os eventos encontrados, use /agenda."),
+  ctx.reply("Soy tu secretaria de agenda. Envía mensajes con fecha y hora; cuando quieras exportar los eventos encontrados, usa /agenda."),
 );
 
 bot.command("agenda", async (ctx) => {
   const chatId = ctx.chat.id;
   const events = candidatesByChat.get(chatId) ?? [];
   if (events.length === 0) {
-    await ctx.reply("Ainda não encontrei eventos com data e horário neste chat.");
+    await ctx.reply("Todavía no encontré eventos con fecha y hora en este chat.");
     return;
   }
 
   const file = new InputFile(Buffer.from(makeCalendar(events), "utf8"), "agenda.ics");
   await ctx.replyWithDocument(file, {
-    caption: `Agenda pronta com ${events.length} evento(s). Importe o arquivo no seu calendário preferido.`,
+    caption: `Agenda lista con ${events.length} evento(s). Importa el archivo en tu calendario preferido.`,
   });
   candidatesByChat.delete(chatId);
 });
 
-bot.command("limpar", async (ctx) => {
+bot.command(["limpiar", "limpar"], async (ctx) => {
   candidatesByChat.delete(ctx.chat.id);
-  await ctx.reply("Eventos pendentes removidos.");
+  await ctx.reply("Eventos pendientes eliminados.");
 });
 
 bot.on("message:text", (ctx) => processText(ctx, ctx.message.text, ctx.message.message_id));
